@@ -53,7 +53,7 @@ with col1:
         st.session_state.messages = []
         st.rerun()
 with col2:
-    API_KEY = st.text_input("Enter your API KEY", type="password")
+    API_KEY = st.text_input("", type="password", placeholder="Enter your API KEY")
 if __name__ == "__main__":
     try:
         config = GeminiConfiguration(api_key=API_KEY)
