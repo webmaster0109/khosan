@@ -9,7 +9,7 @@ st.title(":rainbow[Gemini 2.0 Pro w/ Thinking & Search]")
 
 # Sidebar for API Key to avoid hardcoding credentials
 with st.sidebar:
-    api_key = st.text_input("Google API Key", type="password", placeholder="AIza...", value="AIzaSyAiK6iZMAiXje8ztyjQOXdOx2W1VNpn91U")
+    api_key = st.text_input("Google API Key", type="password", placeholder="AIza...")
     st.markdown("[Get an API key](https://aistudio.google.com/app/apikey)")
 
 # Config toggles
