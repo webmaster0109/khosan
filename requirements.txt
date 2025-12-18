@@ -1,4 +1,5 @@
 streamlit
 google-genai
-requests
-beautifulsoup4
+langchain
+langchain-google-genai
+python-dotenv
