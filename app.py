@@ -18,8 +18,9 @@ if "messages" not in st.session_state:
 
 class GeminiConfiguration:
 
-    def __init__(self):
-        self.api_key = os.getenv("GOOGLE_API_KEY")
+    def __init__(self, api_key):
+        # self.api_key = os.getenv("GOOGLE_API_KEY")
+        self.api_key = api_key
         if not self.api_key:
             raise ValueError("GOOGLE_API_KEY not found in environment variables.")
     
@@ -49,9 +50,10 @@ st.title("🦜🔗 :rainbow[Khosann GenAI]")
 if st.button("🧹 New Conversation"):
     st.session_state.messages = []
     st.rerun()
+API_KEY = st.text_input("Enter your API KEY")
 if __name__ == "__main__":
     try:
-        config = GeminiConfiguration()
+        config = GeminiConfiguration(api_key=API_KEY)
         model = ChatGoogleGenerativeAI(
             model="gemini-2.5-pro",
             google_api_key = config.api_key,
