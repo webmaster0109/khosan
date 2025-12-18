@@ -1,108 +1,99 @@
-from google import genai
-from google.genai import types
+from dotenv import load_dotenv
+import os
+from langchain_google_genai import ChatGoogleGenerativeAI, HarmBlockThreshold, HarmCategory
+from langchain.agents import create_agent
 import streamlit as st
-from utils import get_link_preview
+from langgraph.checkpoint.memory import InMemorySaver
 
-st.set_page_config(page_title="Gemini Thinking Demo", layout="wide")
+load_dotenv()
 
-st.title(":rainbow[Gemini 2.0 Pro w/ Thinking & Search]")
+SYSTEM_PROMPT = """You are an expert software developer, Act as an expert full-stack engineer assistant specialized in Python, Django, Django REST Framework, React, and JavaScript. Your primary role is to provide high-quality code reviews, debugging help, architecture guidance, solve problems [for DSA, machine learning, data science, engineering level mathematics], and advice on best practices for modern web development.
+Your name is Khosann GenAI, made and trained my Sanju Thapa.
 
-# Sidebar for API Key to avoid hardcoding credentials
-with st.sidebar:
-    api_key = st.text_input("Google API Key", type="password", placeholder="AIza...")
-    st.markdown("[Get an API key](https://aistudio.google.com/app/apikey)")
+Since you are now running on local server and I am currently your owner. My name is Sanju Thapa. I am Software Engineer and working as freelancer on machine learning and SaaS projects.
+"""
 
-# Config toggles
-col1, col2 = st.columns(2)
-with col1:
-    thinking_on = st.toggle("Thinking (Reasoning)", value=True, help="Uses gemini-2.0-pro-thinking-exp-01-21")
-with col2:
-    search_on = st.toggle("Google Search", value=False, help="Enables Grounding with Google Search")
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-text_input = st.text_input(":rainbow[Enter a prompt]", placeholder="Why is the sky blue?")
+class GeminiConfiguration:
 
-if text_input and api_key:
-    client = genai.Client(api_key=api_key)
+    def __init__(self):
+        self.api_key = os.getenv("GOOGLE_API_KEY")
+        if not self.api_key:
+            raise ValueError("GOOGLE_API_KEY not found in environment variables.")
     
-    # 1. Select the appropriate model
-    # Thinking config is currently only compatible with specific experimental models
-    model_id = "gemini-2.5-pro"
-
-    # 2. Build the tools list dynamically
-    tools = []
-    if search_on:
-        tools.append(types.Tool(google_search=types.GoogleSearch()))
-
-    # 3. Construct the config
-    config_args = {}
+    def get_generation_config(self):
+        return {
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "top_k": 40,
+            "max_output_tokens": 2048
+        }
     
-    if tools:
-        config_args['tools'] = tools
+    def get_safety_settings(self):
+        return {
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+        }
     
-    if thinking_on:
-        # thinking_config is required to receive thought parts
-        config_args['thinking_config'] = types.ThinkingConfig(include_thoughts=True)
+    def create_model(self, model_name):
+        llm = create_agent(
+            model=model_name,
+            system_prompt=SYSTEM_PROMPT,
+            checkpointer=InMemorySaver())
+        return llm
 
-    config = types.GenerateContentConfig(**config_args)
+st.title("🦜🔗 :rainbow[Khosann GenAI]")
+if st.button("🧹 New Conversation"):
+    st.session_state.messages = []
+    st.rerun()
+if __name__ == "__main__":
+    try:
+        config = GeminiConfiguration()
+        model = ChatGoogleGenerativeAI(
+            model="gemini-2.5-pro",
+            google_api_key = config.api_key,
+        )
+        agent = config.create_model(model_name=model)
 
-    with st.spinner(f"Generating with {model_id}..."):
-        try:
-            response = client.models.generate_content(
-                model=model_id,
-                contents=text_input,
-                config=config
-            )
+        for msg in st.session_state.messages:
+          with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
 
-            # 4. Render output
-            if response.candidates and response.candidates[0].content.parts:
-                for part in response.candidates[0].content.parts:
-                    if not part.text:
-                        continue
-                    
-                    # Check for thought content
-                    # Note: SDK behavior for 'thought' attribute may vary slightly by version; 
-                    # checking hasattr ensures safety.
-                    is_thought = getattr(part, 'thought', False)
-                    
-                    if is_thought:
-                        with st.expander("Thinking Process", expanded=True):
-                            st.markdown(part.text)
-                    else:
-                        st.markdown(part.text)
-            
-            # Show grounding metadata if available (Search results)
-            if search_on and response.candidates[0].grounding_metadata:
-                 with st.expander("Search Sources", expanded=False):
-                        data = response.candidates[0].grounding_metadata.grounding_chunks
-                        url_data = [web.web.uri for web in data]
-                        if not url_data:
-                          st.info("No search sources available.")
-                        else:
-                            COLS_PER_ROW = 3  # safe, responsive value
-                            for i in range(0, len(url_data), COLS_PER_ROW):
-                                cols = st.columns(COLS_PER_ROW)
+        text = st.chat_input("Ask your question...")
 
-                                for col, url in zip(cols, url_data[i:i + COLS_PER_ROW]):
-                                    with col:
-                                        try:
-                                            preview = get_link_preview(url)
+        # store user message
+        if text:
+          title = "Khosann Gen AI"
+          with st.spinner(f"Searching :rainbow[{title}] data...", show_time=True):
+              # st.write(text["files"][0])
+              # st.markdown(f'**User:** :rainbow[{text}]')
+              response = agent.invoke(
+                {"messages": [{"role": "user", "content": f"{text}"}]},
+                {"configurable": {"thread_id": "1", "checkpoint_ns": "chat"}},
+              )
+              ai_message = response['messages'][1]
+              ai_content = (
+                  ai_message.content
+                  if hasattr(ai_message, 'content')
+                  else ai_message['content']
+              )
+              st.session_state.messages.append({
+                  "role": "user",
+                  "content": text
+              })
+              st.session_state.messages.append({
+                "role": "assistant",
+                "content": ai_content
+              })
 
-                                            st.subheader(preview.get("title", "Untitled"))
-
-                                            if preview.get("image"):
-                                                st.image(preview["image"], use_container_width=True)
-
-                                            if preview.get("description"):
-                                                st.write(preview["description"])
-                                            st.markdown(f"[Open link]({preview['url']})")
-
-                                        except Exception:
-                                            st.warning("Preview unavailable")
-                                            st.markdown(f"[Open link]({url})")
-                            
-
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
-
-elif text_input and not api_key:
-    st.warning("Please enter your API Key in the sidebar to proceed.")
+              with st.chat_message("assistant"):
+                  st.write(ai_content)
+              
+              st.toast("Congrats! your data has arrived", icon="🎉")
+              st.balloons()
+        # print(f"\nResponse\n{response.content}")
+    except Exception as e:
+        print(e)
