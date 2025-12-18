@@ -47,10 +47,13 @@ class GeminiConfiguration:
         return llm
 
 st.title("🦜🔗 :rainbow[Khosann GenAI]")
-if st.button("🧹 New Conversation"):
-    st.session_state.messages = []
-    st.rerun()
-API_KEY = st.text_input("Enter your API KEY")
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("🧹 New Conversation"):
+        st.session_state.messages = []
+        st.rerun()
+with col2:
+    API_KEY = st.text_input("Enter your API KEY", type="password")
 if __name__ == "__main__":
     try:
         config = GeminiConfiguration(api_key=API_KEY)
